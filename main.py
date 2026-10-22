@@ -1,5 +1,3 @@
-# Frosty 🎄 — Bot Discord de Noël en Python
-
 import os
 import json
 import random
