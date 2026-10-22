@@ -1,13 +1,4 @@
 # Frosty 🎄 — Bot Discord de Noël en Python
-# Installation :
-#   pip install -U discord.py python-dotenv yt-dlp
-# Installe aussi FFmpeg et ajoute-le au PATH pour la musique.
-# Crée un fichier .env à côté de main.py contenant :
-#   DISCORD_TOKEN=TON_TOKEN_DISCORD
-#   GUILD_ID=ID_DE_TON_SERVEUR   (facultatif, commandes disponibles plus vite en test)
-#
-# Dans le portail développeur Discord, active les scopes bot et applications.commands.
-# Permissions conseillées : View Channels, Send Messages, Embed Links, Connect, Speak.
 
 import os
 import json
@@ -44,10 +35,8 @@ SHOP = {
     "traineau": {"name": "Traîneau doré", "price": 750, "emoji": "🛷"},
 }
 
-# État musical en mémoire : la file est remise à zéro lorsque le bot redémarre.
 music_queues = {}
 music_locks = {}
-
 
 def load_data():
     if DATA_FILE.exists():
@@ -57,13 +46,10 @@ def load_data():
             pass
     return {"users": {}, "events": {}}
 
-
 data = load_data()
-
 
 def save_data():
     DATA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
 
 def get_user(user_id: int):
     key = str(user_id)
@@ -76,17 +62,13 @@ def get_user(user_id: int):
         }
     return data["users"][key]
 
-
 def embed(title: str, description: str, color: int = GREEN):
     e = discord.Embed(title=f"🎄 {title}", description=description, color=color)
     e.set_footer(text="Frosty • L'esprit de Noël toute l'année")
     return e
 
-
 def parse_date(text: str):
-    # Format conseillé : 2026-12-24 20:00. Interprété dans le fuseau local de la machine.
     return datetime.strptime(text, "%Y-%m-%d %H:%M").astimezone()
-
 
 def cooldown_text(last_value):
     if not last_value:
@@ -98,7 +80,6 @@ def cooldown_text(last_value):
     hours, rem = divmod(int(remaining.total_seconds()), 3600)
     minutes = rem // 60
     return f"Reviens dans **{hours} h {minutes} min** pour ton prochain cadeau. 🎁"
-
 
 async def get_music_info(url: str):
     if yt_dlp is None:
@@ -117,7 +98,6 @@ async def get_music_info(url: str):
         raise RuntimeError("Impossible de trouver cette piste.")
     return {"title": info.get("title", "Piste sans titre"), "url": info.get("webpage_url", url),
             "stream_url": info.get("url")}
-
 
 async def play_next(guild_id: int):
     queue = music_queues.get(guild_id)
@@ -156,7 +136,6 @@ async def play_next(guild_id: int):
             await channel.send(embed=embed("Petit couac musical", "Impossible de lire cette piste. Je passe à la suivante.", RED))
         await play_next(guild_id)
 
-
 @bot.event
 async def on_ready():
     try:
@@ -169,7 +148,6 @@ async def on_ready():
         print(f"🎅 Frosty est connecté en tant que {bot.user} — {len(synced)} commandes synchronisées.")
     except Exception as exc:
         print(f"Erreur de synchronisation des commandes : {exc}")
-
 
 @bot.tree.command(name="cadeau", description="Ouvre ton cadeau de Noël quotidien")
 async def cadeau(interaction: discord.Interaction):
@@ -199,7 +177,6 @@ async def daily(interaction: discord.Interaction):
     save_data()
     await interaction.response.send_message(embed=embed("Récompense quotidienne", f"Tu gagnes **100 flocons** !\nSolde : ❄️ **{user['coins']} flocons**."))
 
-
 @bot.tree.command(name="solde", description="Consulte ton portefeuille de flocons")
 @app_commands.describe(membre="Membre à consulter (facultatif)")
 async def solde(interaction: discord.Interaction, membre: discord.Member = None):
@@ -209,12 +186,10 @@ async def solde(interaction: discord.Interaction, membre: discord.Member = None)
     desc = f"💰 Solde : ❄️ **{user['coins']:,} flocons**\n🎒 Objets : {', '.join(inventory) if inventory else 'aucun pour le moment'}"
     await interaction.response.send_message(embed=embed(f"Le sac de {target.display_name}", desc.replace(",", " ")))
 
-
 @bot.tree.command(name="boutique", description="Découvre la boutique de Noël")
 async def boutique(interaction: discord.Interaction):
     lines = [f"{item['emoji']} **{item['name']}** — {item['price']} flocons\n`/acheter objet:{key}`" for key, item in SHOP.items()]
     await interaction.response.send_message(embed=embed("La boutique du Pôle Nord", "\n\n".join(lines)))
-
 
 @bot.tree.command(name="acheter", description="Achète un objet dans la boutique")
 @app_commands.choices(objet=[
@@ -235,7 +210,6 @@ async def acheter(interaction: discord.Interaction, objet: app_commands.Choice[s
     user["inventory"].append(objet.value)
     save_data()
     await interaction.response.send_message(embed=embed("Achat réussi !", f"{item['emoji']} Tu as obtenu **{item['name']}**.\nIl te reste ❄️ **{user['coins']} flocons**."))
-
 
 @bot.tree.command(name="event-creer", description="Crée un événement de Noël")
 @app_commands.default_permissions(manage_events=True)
@@ -258,7 +232,6 @@ async def event_creer(interaction: discord.Interaction, nom: str, date: str, des
     unix = int(when.timestamp())
     await interaction.response.send_message(embed=embed("Événement ajouté !", f"**{discord.utils.escape_markdown(nom)}**\n{discord.utils.escape_markdown(description)}\n🗓️ <t:{unix}:F>\n\nRetrouve-le avec `/events` !"))
 
-
 @bot.tree.command(name="events", description="Affiche les prochains événements de Noël")
 async def events(interaction: discord.Interaction):
     if not interaction.guild:
@@ -273,7 +246,6 @@ async def events(interaction: discord.Interaction):
     else:
         desc = "\n\n".join(f"🎄 **{discord.utils.escape_markdown(e['name'])}**\n<t:{int(datetime.fromisoformat(e['date']).timestamp())}:F>\n{discord.utils.escape_markdown(e['description'])}" for e in upcoming[:10])
     await interaction.response.send_message(embed=embed("Calendrier des festivités", desc))
-
 
 async def ensure_voice(interaction: discord.Interaction):
     if not interaction.guild or not isinstance(interaction.user, discord.Member):
@@ -302,14 +274,12 @@ async def ensure_voice(interaction: discord.Interaction):
         queue["text_channel"] = interaction.channel
     return queue
 
-
 @bot.tree.command(name="rejoindre", description="Fais rejoindre Frosty à ton salon vocal")
 async def rejoindre(interaction: discord.Interaction):
     queue = await ensure_voice(interaction)
     if queue is None:
         return
     await interaction.response.send_message(embed=embed("Frosty a rejoint le vocal !", f"Salon : **{queue['voice'].channel.name}**\nLance une piste avec `/play`."))
-
 
 @bot.tree.command(name="play", description="Joue une piste depuis une URL prise en charge")
 @app_commands.describe(url="URL d'une vidéo ou piste audio")
@@ -330,7 +300,6 @@ async def play_cmd(interaction: discord.Interaction, url: str):
         await play_next(interaction.guild_id)
     await interaction.followup.send(embed=embed("Piste ajoutée à la hotte 🎁", f"🎶 **{discord.utils.escape_markdown(song['title'])}**\nPistes en attente : **{len(queue['songs'])}**"))
 
-
 @bot.tree.command(name="queue", description="Affiche la file musicale")
 async def queue_cmd(interaction: discord.Interaction):
     queue = music_queues.get(interaction.guild_id)
@@ -340,7 +309,6 @@ async def queue_cmd(interaction: discord.Interaction):
     lines += [f"{i}. {s['title']} — {s['requester']}" for i, s in enumerate(queue["songs"][:10], start=1)]
     await interaction.response.send_message(embed=embed("File musicale", "\n".join(lines)))
 
-
 @bot.tree.command(name="skip", description="Passe à la piste suivante")
 async def skip(interaction: discord.Interaction):
     queue = music_queues.get(interaction.guild_id)
@@ -349,7 +317,6 @@ async def skip(interaction: discord.Interaction):
     queue["current"] = None
     queue["voice"].stop()
     await interaction.response.send_message(embed=embed("Piste passée ⏭️", "On enchaîne avec la suite !"))
-
 
 @bot.tree.command(name="stop", description="Arrête la musique et vide la file")
 async def stop(interaction: discord.Interaction):
@@ -362,7 +329,6 @@ async def stop(interaction: discord.Interaction):
         queue["voice"].stop()
     await queue["voice"].disconnect(force=True)
     await interaction.response.send_message(embed=embed("Silence au Pôle Nord", "La musique est arrêtée et la file a été vidée."))
-
 
 if __name__ == "__main__":
     if not TOKEN:
