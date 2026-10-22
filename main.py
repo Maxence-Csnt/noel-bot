@@ -1,129 +1,114 @@
-import os
-import random
-import discord
-from discord import app_commands
+    save_data()
+    unix = int(when.timestamp())
+    await interaction.response.send_message(embed=embed("Événement ajouté !", f"**{discord.utils.escape_markdown(nom)}**\n{discord.utils.escape_markdown(description)}\n🗓️ <t:{unix}:F>\n\nRetrouve-le avec `/events` !"))
 
-# Utilisation des intents par défaut (sans privilèges restreints)
-intents = discord.Intents.default()
 
-class HalloweenBot(discord.Client):
-    def __init__(self):
-        super().__init__(intents=intents)
-        self.tree = app_commands.CommandTree(self)
-
-    async def setup_hook(self):
-        await self.tree.sync()
-        print("🎃 Commandes d'Halloween synchronisées avec succès ! 👻")
-
-client = HalloweenBot()
-
-# Dictionnaire pour stocker les bonbons des utilisateurs
-chaudrons = {}
-
-@client.event
-async def on_ready():
-    print(f"👻 Bot Halloween connecté en tant que {client.user} ! 🦇")
-    await client.change_presence(activity=discord.Game(name="Événement d'Halloween 🎃 | /halloween"))
-
-# --- COMMANDES SLASH ---
-
-@client.tree.command(name="halloween", description="Détails et explications de l'évènement d'Halloween 🎃")
-async def halloween_info(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🎃 Évènement Saisonnier d'Halloween",
-        description="Bienvenue dans l'événement officiel ! Chassez des bonbons, consultez votre chaudron et jetez des sorts ! 🦇🕸️",
-        color=discord.Color.orange()
-    )
-    await interaction.response.send_message(embed=embed)
-
-@client.tree.command(name="bonbon", description="Offrez des bonbons à la personne de votre choix 🍬")
-@app_commands.describe(membre="La personne à qui offrir", nombre="Nombre de bonbons")
-async def bonbon(interaction: discord.Interaction, membre: discord.Member, nombre: int):
-    if membre == interaction.user:
-        await interaction.response.send_message("❌ Tu ne peux pas t'offrir des bonbons à toi-même ! 🎃", ephemeral=True)
-        return
-    if nombre <= 0:
-        await interaction.response.send_message("❌ Il faut offrir au moins 1 bonbon ! 🦇", ephemeral=True)
-        return
-    
-    embed = discord.Embed(
-        title="🍬 Distribution de bonbons",
-        description=f"{interaction.user.mention} offre **{nombre}** délicieux bonbons à {membre.mention} ! 🍫",
-        color=discord.Color.orange()
-    )
-    await interaction.response.send_message(embed=embed)
-
-@client.tree.command(name="chaudron", description="Jetez un œil à votre chaudron de bonbons magique 🧙‍♀️")
-async def chaudron(interaction: discord.Interaction):
-    nb_bonbons = chaudrons.get(interaction.user.id, 0)
-    embed = discord.Embed(
-        title="🧙‍♀️ Le Chaudron Magique",
-        description=f"En regardant dans les vapeurs de ton chaudron, tu aperçois **{nb_bonbons} bonbons** qui frémissent ! 🍬🔥",
-        color=discord.Color.purple()
-    )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@client.tree.command(name="chasse", description="Partez à la chasse aux bonbons dans les bois hantés 🐺")
-@app_commands.describe(partenaire="Votre partenaire de chasse")
-async def chasse(interaction: discord.Interaction, partenaire: discord.Member):
-    if partenaire == interaction.user:
-        await interaction.response.send_message("❌ On ne peut pas chasser tout seul dans les bois sombres... Prends un ami ! 🌲", ephemeral=True)
-        return
-    
-    butin = random.randint(1, 5)
-    chaudrons[interaction.user.id] = chaudrons.get(interaction.user.id, 0) + butin
-    chaudrons[partenaire.id] = chaudrons.get(partenaire.id, 0) + butin
-
-    embed = discord.Embed(
-        title="🐺 Chasse aux monstres",
-        description=f"{interaction.user.mention} et {partenaire.mention} partent explorer les bois...\n\n🏆 Ils récupèrent chacun **{butin} bonbons** pour leur chaudron ! 🍬",
-        color=discord.Color.dark_orange()
-    )
-    await interaction.response.send_message(embed=embed)
-
-@client.tree.command(name="bouh", description="Faites apparaître une image animée pour effrayer vos amis 🎃")
-async def bouh(interaction: discord.Interaction):
-    gifs = [
-        "https://media.giphy.com/media/3oKIPEhWQVfrAFUDLy/giphy.gif",
-        "https://media.giphy.com/media/10osILvZ4ez7ws/giphy.gif",
-        "https://media.giphy.com/media/8qXJTU5oEhQZO/giphy.gif"
+@bot.tree.command(name="events", description="Affiche les prochains événements de Noël")
+async def events(interaction: discord.Interaction):
+    if not interaction.guild:
+        return await interaction.response.send_message("Cette commande doit être utilisée dans un serveur.", ephemeral=True)
+    upcoming = [
+        e for e in data["events"].values()
+        if e["guild_id"] == interaction.guild_id and datetime.fromisoformat(e["date"]).timestamp() > datetime.now().timestamp()
     ]
-    embed = discord.Embed(title="👻 BOUH !", description=f"{interaction.user.mention} essaie de vous faire peur ! 🦇", color=discord.Color.dark_purple())
-    embed.set_image(url=random.choice(gifs))
-    await interaction.response.send_message(embed=embed)
+    upcoming.sort(key=lambda e: e["date"])
+    if not upcoming:
+        desc = "Aucun événement prévu pour le moment. Les lutins attendent une idée !"
+    else:
+        desc = "\n\n".join(f"🎄 **{discord.utils.escape_markdown(e['name'])}**\n<t:{int(datetime.fromisoformat(e['date']).timestamp())}:F>\n{discord.utils.escape_markdown(e['description'])}" for e in upcoming[:10])
+    await interaction.response.send_message(embed=embed("Calendrier des festivités", desc))
 
-@client.tree.command(name="grimoire", description="Consultez votre grimoire des créatures d'Halloween 📖")
-async def grimoire(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="📖 Grimoire des Créatures",
-        description="• **Fantôme farceur** (Rare) 👻\n• **Vampire assoiffé** (Épique) 🧛‍♂️\n• **Citrouille maudite** (Légendaire) 🎃\n• **Zombie affamé** (Commun) 🧟‍♂️",
-        color=discord.Color.blue()
-    )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@client.tree.command(name="rituel", description="Faites un rituel pour invoquer des créatures 👻")
-async def rituel(interaction: discord.Interaction):
-    creatures = ["un Spectre hurlant 👻", "un Loup-garou des ténébres 🐺", "un Squelette danseur 💀"]
-    embed = discord.Embed(
-        title="🕯️ Cercle d'Invocation",
-        description=f"✨ **INVOCATION RÉUSSIE :** {random.choice(creatures)} apparaît dans un nuage de fumée violette ! 🔮",
-        color=discord.Color.dark_red()
-    )
-    await interaction.response.send_message(embed=embed)
+async def ensure_voice(interaction: discord.Interaction):
+    if not interaction.guild or not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("Utilise cette commande dans un serveur.", ephemeral=True)
+        return None
+    voice_channel = interaction.user.voice.channel if interaction.user.voice else None
+    if voice_channel is None:
+        await interaction.response.send_message("Rejoins d'abord un salon vocal ! 🎶", ephemeral=True)
+        return None
+    if not interaction.guild.voice_client:
+        try:
+            voice = await voice_channel.connect()
+        except Exception as exc:
+            await interaction.response.send_message(f"Je n'arrive pas à rejoindre le vocal : {exc}", ephemeral=True)
+            return None
+    else:
+        voice = interaction.guild.voice_client
+        if voice.channel != voice_channel:
+            await voice.move_to(voice_channel)
+    queue = music_queues.get(interaction.guild_id)
+    if queue is None:
+        queue = {"songs": [], "current": None, "voice": voice, "text_channel": interaction.channel}
+        music_queues[interaction.guild_id] = queue
+    else:
+        queue["voice"] = voice
+        queue["text_channel"] = interaction.channel
+    return queue
 
-@client.tree.command(name="sort", description="Lancez un sort maléfique à un membre du serveur ! 🕷️")
-@app_commands.describe(membre="La victime du sortilège")
-async def sort(interaction: discord.Interaction, membre: discord.Member):
-    sorts = ["transformé en crapaud visqueux 🐸", "maudit avec des chauves-souris dans les cheveux 🦇", "bloqué dans une toile d'araignée 🕸️"]
-    embed = discord.Embed(
-        title="⚡ Sortilège Noir",
-        description=f"{interaction.user.mention} lance un sort sur {membre.mention} !\n\n🔮 Résultat : La cible se retrouve **{random.choice(sorts)}** !",
-        color=discord.Color.dark_purple()
-    )
-    await interaction.response.send_message(embed=embed)
 
-TOKEN = os.getenv("DISCORD_TOKEN")
-if TOKEN:
-    client.run(TOKEN)
-else:
-    print("❌ Erreur : DISCORD_TOKEN introuvable !")
+@bot.tree.command(name="rejoindre", description="Fais rejoindre Frosty à ton salon vocal")
+async def rejoindre(interaction: discord.Interaction):
+    queue = await ensure_voice(interaction)
+    if queue is None:
+        return
+    await interaction.response.send_message(embed=embed("Frosty a rejoint le vocal !", f"Salon : **{queue['voice'].channel.name}**\nLance une piste avec `/play`."))
+
+
+@bot.tree.command(name="play", description="Joue une piste depuis une URL prise en charge")
+@app_commands.describe(url="URL d'une vidéo ou piste audio")
+async def play_cmd(interaction: discord.Interaction, url: str):
+    if yt_dlp is None:
+        return await interaction.response.send_message("La musique nécessite `yt-dlp`. Installe-le avec `pip install yt-dlp`.", ephemeral=True)
+    queue = await ensure_voice(interaction)
+    if queue is None:
+        return
+    await interaction.response.defer()
+    try:
+        song = await get_music_info(url)
+    except Exception as exc:
+        return await interaction.followup.send(f"Je n'arrive pas à lire cette URL. Vérifie le lien et réessaie. (`{str(exc)[:150]}`)")
+    song["requester"] = interaction.user.display_name
+    queue["songs"].append(song)
+    if not queue["voice"].is_playing() and not queue["voice"].is_paused() and queue["current"] is None:
+        await play_next(interaction.guild_id)
+    await interaction.followup.send(embed=embed("Piste ajoutée à la hotte 🎁", f"🎶 **{discord.utils.escape_markdown(song['title'])}**\nPistes en attente : **{len(queue['songs'])}**"))
+
+
+@bot.tree.command(name="queue", description="Affiche la file musicale")
+async def queue_cmd(interaction: discord.Interaction):
+    queue = music_queues.get(interaction.guild_id)
+    if not queue:
+        return await interaction.response.send_message("La file musicale est vide. Utilise `/rejoindre` puis `/play`.", ephemeral=True)
+    lines = [f"▶️ **En cours :** {queue['current']['title']}" if queue.get("current") else "⏸️ Aucune piste en cours"]
+    lines += [f"{i}. {s['title']} — {s['requester']}" for i, s in enumerate(queue["songs"][:10], start=1)]
+    await interaction.response.send_message(embed=embed("File musicale", "\n".join(lines)))
+
+
+@bot.tree.command(name="skip", description="Passe à la piste suivante")
+async def skip(interaction: discord.Interaction):
+    queue = music_queues.get(interaction.guild_id)
+    if not queue or not queue.get("current"):
+        return await interaction.response.send_message("Aucune piste n'est en cours.", ephemeral=True)
+    queue["current"] = None
+    queue["voice"].stop()
+    await interaction.response.send_message(embed=embed("Piste passée ⏭️", "On enchaîne avec la suite !"))
+
+
+@bot.tree.command(name="stop", description="Arrête la musique et vide la file")
+async def stop(interaction: discord.Interaction):
+    queue = music_queues.pop(interaction.guild_id, None)
+    if not queue:
+        return await interaction.response.send_message("La musique est déjà arrêtée.", ephemeral=True)
+    queue["songs"].clear()
+    queue["current"] = None
+    if queue["voice"].is_playing() or queue["voice"].is_paused():
+        queue["voice"].stop()
+    await queue["voice"].disconnect(force=True)
+    await interaction.response.send_message(embed=embed("Silence au Pôle Nord", "La musique est arrêtée et la file a été vidée."))
+
+
+if __name__ == "__main__":
+    if not TOKEN:
+        raise SystemExit("Ajoute DISCORD_TOKEN dans un fichier .env à côté de main.py.")
+    bot.run(TOKEN)
