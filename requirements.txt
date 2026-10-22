@@ -1,4 +1,5 @@
-discord.py
-python-dotenv
+discord.py[voice]>=2.7
+davey
 yt-dlp
+python-dotenv
 PyNaCl
